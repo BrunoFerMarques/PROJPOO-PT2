@@ -169,7 +169,7 @@ export class ServicoReservas {
       this.eventos.notificar({ tipo: "ALTERADA", antes, depois });
       
       await this.calendario?.removerReserva(antes.id);
-      await this.calendario?.publicarReservar(depois, usuario.nome, sala.nome);
+      await this.calendario?.publicarReserva(depois, usuario.nome, sala.nome);
       return depois;
     });
   }

@@ -32,7 +32,7 @@ export class ServicoReservas {
   constructor(
     private readonly repo: RepositorioCampus,
     private readonly eventos: CentroEventosReserva,
-    private politica: PoliticaDeReserva
+    private politica: PoliticaDeReserva,
     private readonly calendario?: CalendarioService
   ) {}
 

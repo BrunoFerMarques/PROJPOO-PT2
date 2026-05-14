@@ -5,6 +5,7 @@ import type { Usuario } from "../domain/Usuario.js";
 import { CentroEventosReserva } from "../patterns/observer/CentroEventosReserva.js";
 import type { PoliticaDeReserva } from "../patterns/strategy/PoliticaDeReserva.js";
 import { RepositorioCampus } from "../patterns/singleton/RepositorioCampus.js";
+import type { CalendarioService } from "../patterns/adapter/CalendarioService.js";
 
 function inicioDoDia(d: Date): Date {
   const x = new Date(d);
@@ -32,6 +33,7 @@ export class ServicoReservas {
     private readonly repo: RepositorioCampus,
     private readonly eventos: CentroEventosReserva,
     private politica: PoliticaDeReserva
+    private readonly calendario?: CalendarioService
   ) {}
 
   definirPolitica(p: PoliticaDeReserva): void {
@@ -94,11 +96,15 @@ export class ServicoReservas {
           const cancelada = ex.cloneCom({ status: "CANCELADA" });
           this.repo.salvarReserva(cancelada);
           this.eventos.notificar({ tipo: "CANCELADA", reserva: cancelada });
+        
+          await this.calendario?.removerReserva(cancelada.id);
         }
       }
 
       this.repo.salvarReserva(nova);
       this.eventos.notificar({ tipo: "CRIADA", reserva: nova });
+      
+      await this.calendario?publicarReservar(nova, usuario.nome, sala.nome);
       return nova;
     });
   }
@@ -154,12 +160,16 @@ export class ServicoReservas {
           const cancelada = ex.cloneCom({ status: "CANCELADA" });
           this.repo.salvarReserva(cancelada);
           this.eventos.notificar({ tipo: "CANCELADA", reserva: cancelada });
+          await this.calendario?.removerReserva(cancelada.id);
         }
       }
 
       const antes = atual.cloneCom({});
       this.repo.salvarReserva(depois);
       this.eventos.notificar({ tipo: "ALTERADA", antes, depois });
+      
+      await this.calendario?.removerReserva(antes.id);
+      await this.calendario?.publicarReservar(depois, usuario.nome, sala.nome);
       return depois;
     });
   }
@@ -179,6 +189,8 @@ export class ServicoReservas {
       const cancelada = atual.cloneCom({ status: "CANCELADA" });
       this.repo.salvarReserva(cancelada);
       this.eventos.notificar({ tipo: "CANCELADA", reserva: cancelada });
+      
+      await this.calendario?.removerReserva(cancelada.id);
     });
   }
 

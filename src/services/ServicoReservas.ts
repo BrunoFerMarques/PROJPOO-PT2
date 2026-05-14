@@ -104,7 +104,7 @@ export class ServicoReservas {
       this.repo.salvarReserva(nova);
       this.eventos.notificar({ tipo: "CRIADA", reserva: nova });
       
-      await this.calendario?publicarReservar(nova, usuario.nome, sala.nome);
+      await this.calendario?.publicarReserva(nova, usuario.nome, sala.nome);
       return nova;
     });
   }

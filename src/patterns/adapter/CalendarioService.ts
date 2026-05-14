@@ -1,4 +1,4 @@
-import type { Reserva } from "../../domain/Reserva.ts"
+import type { Reserva } from "../../domain/Reserva.ts";
 
 export interface CalendarioService {
 	publicarRerserva (

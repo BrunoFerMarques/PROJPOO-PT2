@@ -21,6 +21,7 @@ import {
   DecoratorMultimidia,
   DecoratorLimpeza,
 } from "./patterns/decorator/ReservaExtras.js";
+import { GoogleCalendarAdapter } from "./patterns/adapter/GoogleCalendarAdapter.js";
 
 // ─── helpers de I/O ──────────────────────────────────────────────────────────
 
@@ -110,8 +111,10 @@ async function main() {
   centro.anexar(new NotificacaoConsoleObservador("[NOTIF]"));
   centro.anexar(cacheObs);
 
+  const calendario = new GoogleCalendarAdapter();
+
   let politicaAtual: "primeiro" | "docente" = "primeiro";
-  let servico = new ServicoReservas(repo, centro, new PoliticaPrimeiroAReservar());
+  let servico = new ServicoReservas(repo, centro, new PoliticaPrimeiroAReservar(), calendario);
 
   seed(repo);
 

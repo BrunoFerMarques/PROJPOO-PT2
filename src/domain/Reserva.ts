@@ -1,4 +1,4 @@
-export type StatusReserva = "CONFIRMADA" | "CANCELADA";
+export type StatusReserva = "PENDENTE" | "CONFIRMADA" | "CANCELADA" | "REJEITADA";
 
 export interface Intervalo {
   inicio: Date;

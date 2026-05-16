@@ -3,6 +3,3 @@
 
 # AUTORES
 
-Bruno Marques
-
-Bruno Shiohei   

@@ -21,6 +21,7 @@ import {
   DecoratorMultimidia,
   DecoratorLimpeza,
 } from "./patterns/decorator/ReservaExtras.js";
+import { GoogleCalendarAdapter } from "./patterns/adapter/GoogleCalendarAdapter.js";
 
 // ─── helpers de I/O ──────────────────────────────────────────────────────────
 
@@ -110,8 +111,10 @@ async function main() {
   centro.anexar(new NotificacaoConsoleObservador("[NOTIF]"));
   centro.anexar(cacheObs);
 
+  const calendario = new GoogleCalendarAdapter();
+
   let politicaAtual: "primeiro" | "docente" = "primeiro";
-  let servico = new ServicoReservas(repo, centro, new PoliticaPrimeiroAReservar());
+  let servico = new ServicoReservas(repo, centro, new PoliticaPrimeiroAReservar(), calendario);
 
   seed(repo);
 
@@ -129,6 +132,8 @@ async function main() {
   5. Relatório diário          (RF-05)
   6. Trocar política de colisão (Strategy)
   7. Ver extras de uma reserva  (Decorator — bônus)
+  8. Aprovar reserva             (State)
+  9. Rejeitar reserva            (State)
   0. Sair`);
     hr();
 
@@ -204,8 +209,8 @@ async function main() {
 
       // ── RF-02: cancelar ────────────────────────────────────────────────────
       case "4": {
-        const reservas = repo.listarTodasReservas().filter(r => r.status === "CONFIRMADA");
-        if (reservas.length === 0) { console.log("  Sem reservas confirmadas."); break; }
+        const reservas = repo.listarTodasReservas().filter(r => r.status === "CONFIRMADA" || r.status === "PENDENTE");
+        if (reservas.length === 0) { console.log("  Sem reservas confirmadas ou pendentes."); break; }
         console.log("\n  Reservas confirmadas:");
         for (const r of reservas) {
           const u = repo.obterUsuario(r.usuarioId);
@@ -281,6 +286,53 @@ async function main() {
         console.log(extras.length > 0
           ? `  ✔ Extras adicionados: ${extras.join(", ")}`
           : "  (nenhum extra selecionado)");
+        break;
+      }
+
+      // ── State: aprovar ────────────────────────────────────────────────────
+      case "8": {
+        const reservas = repo.listarTodasReservas().filter(r => r.status === "PENDENTE");
+        if (reservas.length === 0) { console.log("  Sem reservas pendentes."); break; }
+        console.log("\n  Reservas pendentes:");
+        for (const r of reservas) {
+          const u = repo.obterUsuario(r.usuarioId);
+          console.log(`    [${r.id.slice(0, 8)}] sala ${r.salaId} | ${fmt(r.inicio)} → ${fmt(r.fim)} | ${u?.nome}`);
+        }
+        const rId = (await pergunta("  ID da reserva (8 chars): ")).trim();
+        const reserva = reservas.find(r => r.id.startsWith(rId));
+        if (!reserva) { console.log("  ✗ Reserva não encontrada."); break; }
+        menuUsuarios(repo);
+        const aprovadorId = (await pergunta("  ID do docente aprovador: ")).trim();
+        try {
+          const aprovada = await servico.aprovarReserva(reserva.id, aprovadorId);
+          console.log(`  ✔ Reserva aprovada: ${aprovada.id}`);
+        } catch (e) {
+          console.log(`  ✗ Erro: ${(e as Error).message}`);
+        }
+        break;
+      }
+
+      // ── State: rejeitar ───────────────────────────────────────────────────
+      case "9": {
+        const reservas = repo.listarTodasReservas().filter(r => r.status === "PENDENTE");
+        if (reservas.length === 0) { console.log("  Sem reservas pendentes."); break; }
+        console.log("\n  Reservas pendentes:");
+        for (const r of reservas) {
+          const u = repo.obterUsuario(r.usuarioId);
+          console.log(`    [${r.id.slice(0, 8)}] sala ${r.salaId} | ${fmt(r.inicio)} → ${fmt(r.fim)} | ${u?.nome}`);
+        }
+        const rId = (await pergunta("  ID da reserva (8 chars): ")).trim();
+        const reserva = reservas.find(r => r.id.startsWith(rId));
+        if (!reserva) { console.log("  ✗ Reserva não encontrada."); break; }
+        menuUsuarios(repo);
+        const aprovadorId = (await pergunta("  ID do docente: ")).trim();
+        const motivo = (await pergunta("  Motivo da rejeição: ")).trim();
+        try {
+          const rejeitada = await servico.rejeitarReserva(reserva.id, aprovadorId, motivo);
+          console.log(`  ✔ Reserva rejeitada: ${rejeitada.id}`);
+        } catch (e) {
+          console.log(`  ✗ Erro: ${(e as Error).message}`);
+        }
         break;
       }
 

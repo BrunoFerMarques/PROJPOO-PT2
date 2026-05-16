@@ -3,3 +3,5 @@
 
 # AUTORES
 
+    Bruno Marques
+    Rafael Freire

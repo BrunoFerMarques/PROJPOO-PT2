@@ -6,6 +6,7 @@ import { CentroEventosReserva } from "../patterns/observer/CentroEventosReserva.
 import type { PoliticaDeReserva } from "../patterns/strategy/PoliticaDeReserva.js";
 import { RepositorioCampus } from "../patterns/singleton/RepositorioCampus.js";
 import type { CalendarioService } from "../patterns/adapter/CalendarioService.js";
+import { obterEstado } from "../patterns/state/MaquinaEstadoReserva.js";
 
 function inicioDoDia(d: Date): Date {
   const x = new Date(d);
@@ -120,8 +121,8 @@ export class ServicoReservas {
       if (atual.usuarioId !== solicitanteId) {
         throw new Error("Somente o titular pode alterar.");
       }
-      if (atual.status !== "CONFIRMADA") {
-        throw new Error("Reserva não está confirmada.");
+      if (!obterEstado(atual.status).podeAlterar()) {
+        throw new Error("Reserva não pode ser alterada no estado atual.");
       }
 
       const usuario = this.repo.obterUsuario(solicitanteId);
@@ -181,16 +182,51 @@ export class ServicoReservas {
     return this.repo.runExclusive(async () => {
       const atual = this.repo.obterReserva(reservaId);
       if (!atual) throw new Error("Reserva inexistente.");
-      if (atual.usuarioId !== solicitanteId) {
-        throw new Error("Somente o titular pode cancelar.");
-      }
-      if (atual.status !== "CONFIRMADA") return;
+      const solicitante = this.repo.obterUsuario(solicitanteId);
+      if (!solicitante) throw new Error("Usuário inexistente.");
 
-      const cancelada = atual.cloneCom({ status: "CANCELADA" });
+      const { novoStatus } = obterEstado(atual.status).cancelar(atual, solicitante);
+
+      const cancelada = atual.cloneCom({ status: novoStatus });
       this.repo.salvarReserva(cancelada);
       this.eventos.notificar({ tipo: "CANCELADA", reserva: cancelada });
-      
+
       await this.calendario?.removerReserva(cancelada.id);
+    });
+  }
+
+  async aprovarReserva(reservaId: string, aprovadorId: string): Promise<Reserva> {
+    return this.repo.runExclusive(async () => {
+      const atual = this.repo.obterReserva(reservaId);
+      if (!atual) throw new Error("Reserva inexistente.");
+      const aprovador = this.repo.obterUsuario(aprovadorId);
+      if (!aprovador) throw new Error("Usuário inexistente.");
+
+      const { novoStatus } = obterEstado(atual.status).aprovar(atual, aprovador);
+
+      const aprovada = atual.cloneCom({ status: novoStatus });
+      this.repo.salvarReserva(aprovada);
+      this.eventos.notificar({ tipo: "CRIADA", reserva: aprovada });
+
+      const sala = this.repo.obterSala(aprovada.salaId);
+      if (sala) await this.calendario?.publicarReserva(aprovada, aprovador.nome, sala.nome);
+      return aprovada;
+    });
+  }
+
+  async rejeitarReserva(reservaId: string, aprovadorId: string, motivo: string): Promise<Reserva> {
+    return this.repo.runExclusive(async () => {
+      const atual = this.repo.obterReserva(reservaId);
+      if (!atual) throw new Error("Reserva inexistente.");
+      const aprovador = this.repo.obterUsuario(aprovadorId);
+      if (!aprovador) throw new Error("Usuário inexistente.");
+
+      const { novoStatus } = obterEstado(atual.status).rejeitar(atual, aprovador, motivo);
+
+      const rejeitada = atual.cloneCom({ status: novoStatus });
+      this.repo.salvarReserva(rejeitada);
+      this.eventos.notificar({ tipo: "CANCELADA", reserva: rejeitada });
+      return rejeitada;
     });
   }
 
